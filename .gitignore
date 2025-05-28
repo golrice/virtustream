@@ -1,1 +1,6 @@
 doc/
+logs/
+
+venv/
+
+__pycache__/
