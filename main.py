@@ -1,51 +1,22 @@
 import asyncio
-import logging
 import os
 import signal
 import sys
 import time
 import threading
-from logging.handlers import TimedRotatingFileHandler
 
+from typing import Dict
+from modules.client import Client
+from modules.module import Module
 from signals import Signals
 from prompter import Prompter
 from stt import STT
 from tts import TTS
 from LLM import LLMState, textLLMWrapper
+from utils import get_logger
+from constant import LOG_DIR
 
-LOG_DIR = "logs"
 os.makedirs(LOG_DIR, exist_ok=True)
-
-def get_logger(name: str = "default", level=logging.INFO) -> logging.Logger:
-    logger = logging.getLogger(name)
-    logger.setLevel(level)
-
-    if logger.handlers:
-        return logger  
-
-    formatter = logging.Formatter(
-        fmt="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S"
-    )
-
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(level)
-    console_handler.setFormatter(formatter)
-    logger.addHandler(console_handler)
-
-    file_handler = TimedRotatingFileHandler(
-        filename=os.path.join(LOG_DIR, f"{name}.log"),
-        when="midnight",
-        interval=1,
-        backupCount=7,  
-        encoding="utf-8"
-    )
-    file_handler.setLevel(level)
-    file_handler.setFormatter(formatter)
-    logger.addHandler(file_handler)
-
-    logger.propagate = False  
-    return logger
 
 async def main():
     logger = get_logger(__name__)
@@ -64,21 +35,29 @@ async def main():
     # 初始化语音文字功能
     stt = STT(signals)
     tts = TTS(signals)
-    
-    # 初始化模型功能
-    llmState = LLMState.LLMState
-    llms = {
-        "text": textLLMWrapper.TextLLMWrapper(signals, tts, llmState),
-    }
-    # 初始化提示词功能 
-    prompter = Prompter(signals, llms)
 
-    # 分配计算资源
+    # 初始化模块
+    modules: Dict[str, Module] = {}
+    module_threads: Dict[str, threading.Thread] = {}
+
+    # 初始化外部客户端
+    modules["client"] = Client(signals, True, logger)
+    
+    # 初始化模型
+    text_llm = textLLMWrapper.TextLLMWrapper(signals, tts, modules)
+    # # 初始化提示词功能 
+    prompter = Prompter(signals, text_llm, logger, modules)
+
+    # # 分配计算资源
     prompter_thread = threading.Thread(target=prompter.prompt_loop, daemon=True)
-    stt_thread = threading.Thread(target=stt.listen_loop, daemon=True)
+    # stt_thread = threading.Thread(target=stt.listen_loop, daemon=True)
     
     prompter_thread.start()
-    stt_thread.start()
+    # stt_thread.start()
+
+    for name, module in modules.items():
+        module_threads[name] = threading.Thread(target=module.init_event_loop, daemon=True)
+        module_threads[name].start()
 
     # 定时监测生命周期
     while not signals.terminate:
