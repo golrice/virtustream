@@ -17,6 +17,12 @@ flowchart TD
         F[后台任务 send_messages]
     end
 
+    subgraph 内部处理
+        self.signals
+        llm
+        tts/stt
+    end
+
     Client1 -- 事件调用 --> B
     Client2 -- 事件调用 --> B
     ClientN -- 事件调用 --> B

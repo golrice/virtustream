@@ -30,7 +30,7 @@ async def main():
     signal.signal(signal.SIGTERM, signal_handler)
 
     # 信号控制
-    signals = Signals()
+    signals = Signals(logger)
 
     # 初始化语音文字功能
     stt = STT(signals)
