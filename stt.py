@@ -4,6 +4,7 @@ from signals import Signals
 class STT():
     def __init__(self, sg: Signals):
         self._signals = sg
+        self._signals.stt_ready = True
 
     def speaking(self):
         return False

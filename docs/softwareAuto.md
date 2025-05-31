@@ -81,12 +81,10 @@ cd virtustream
 ### 3.2 日常开发流程（开发分支）
 
 ```bash
-git checkout -b feature/xxx   # 创建功能分支
+git checkout -b dev   # 创建分支
 # 修改代码...
 git add .
 git commit -m "feat: xxx"
-git push origin feature/xxx
-# 然后提交 Pull Request 合并到 dev 分支
 ```
 
 ---
@@ -94,11 +92,12 @@ git push origin feature/xxx
 ### 3.3 合并流程（管理员或负责人操作）
 
 ```bash
-git checkout dev
-git pull origin dev
 git checkout main
-git merge dev
-git push origin main
+git pull origin main # 获取最新的远端代码
+git merge dev # 将本地的开发内容加入到main分支
+git push origin main # 推送到远端
+git checkout dev
+git rebase main
 ```
 
 ---
@@ -108,6 +107,7 @@ git push origin main
 ### 4.1 本地运行
 
 ```bash
+python outerServer.py
 python main.py
 ```
 
