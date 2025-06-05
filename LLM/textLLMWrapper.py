@@ -1,12 +1,17 @@
 from copy import deepcopy
 import time
 from typing import Dict, List
-from constant import AI_NAME, IHISTORY, ISYSTEM, IUSER, STOP_STRINGS, SYSTEM_PROMPT
+from constant import AI_NAME, IHISTORY, ISYSTEM, IUSER, MODEL_NAME, STOP_STRINGS, SYSTEM_PROMPT
 from modules.injection import Injection
 from modules.module import Module
 from signals import Signals
 from tts import TTS
-from LLM.LLMState import LLMState
+from typing import Optional
+from openai import OpenAI
+from dotenv import load_dotenv
+import os
+
+from utils import get_logger
 
 class TextLLMWrapper():
     def __init__(self, signals: Signals, tts: TTS, modules: Dict[str, Module]):
@@ -18,9 +23,13 @@ class TextLLMWrapper():
         else:
             self.modules = modules
         
+        self.model_name = MODEL_NAME
+
         # 加载一些本地的信息...
         self.SYSTEM_PROMPT = SYSTEM_PROMPT
-            
+        load_dotenv()
+        self.client = OpenAI(api_key=os.getenv("API_KEY"), base_url="https://api.deepseek.com")
+
     # 聚合所有的prompt注入 包括所有外部模块
     def assemble_injectinos(self, injections: List[Injection]=None):
         if injections is None:
@@ -34,7 +43,7 @@ class TextLLMWrapper():
 
         injections.sort(key=lambda x : x.priority)
 
-        return "\n".join(x.text for x in injections if x.priority != -1)
+        return [{"role": x.name, "content": x.text} for x in injections if x.priority != -1]
     
     def generate_prompt(self):
         # 拷贝历史消息 防止更新过程出现冲突
@@ -43,43 +52,47 @@ class TextLLMWrapper():
         # 将历史消息转换成为字符串
         msg = "\n".join(f"{block['role']}: {block['content']}" for block in historys)
 
-        # 生成prompt
-        generation_prompt = AI_NAME + ": "
-
         # 拼接所有的prompt
-        injections = [Injection(self.SYSTEM_PROMPT, ISYSTEM), Injection(msg, IHISTORY)]
-        prompt = self.assemble_injectinos(injections) + generation_prompt
+        injections = [Injection(self.SYSTEM_PROMPT, ISYSTEM, "system"), Injection(msg, IHISTORY)]
+        prompt = self.assemble_injectinos(injections)
 
         return prompt
     
     # 后续发起llm请求的负载
-    def prepare_payload(self):
-        return {
-            "mode": "instruct",
-            "stream": True,
-            "max_tokens": 200,
-            "skip_special_tokens": False,  # Necessary for Llama 3
-            "stop": STOP_STRINGS,
-            "messages": [{
-                "role": "user",
-                "content": self.generate_prompt()
-            }]
-        }
+    # def prepare_payload(self):
+    #     return {
+    #         "mode": "instruct",
+    #         "stream": True,
+    #         "max_tokens": 200,
+    #         "skip_special_tokens": False,  # Necessary for Llama 3
+    #         "stop": STOP_STRINGS,
+    #         "messages": [{
+    #             "role": "user",
+    #             "content": self.generate_prompt()
+    #         }]
+    #     }
     
     def generate_response(self):
         self._signals._AI_thinking = True
         self._signals._new_message = False
 
-        payload = self.prepare_payload()
-
         # 发起请求...
-        print(f"prompt: [{payload['messages'][0]['content']}]")
-        AI_message = "我是Nico\n"
+        AI_message = self.client.chat.completions.create(
+            model=self.model_name,
+            messages=self.generate_prompt(),
+            stream=False
+        ).choices[0].message.content
 
         print(f"AI_message = {AI_message}")
         self._signals._last_message_time = time.time()
         self._signals._AI_thinking = False
 
-        self._signals._history.append({"role": AI_NAME, "content": AI_message})
+        self._signals._history.append({"role": "assistant", "content": AI_message})
         self._tts.play(AI_message)
 
+if __name__ == "__main__":
+    logger = get_logger()
+    signals = Signals(logger)
+
+    start = time.time()
+    end = time.time()

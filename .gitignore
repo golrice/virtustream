@@ -4,3 +4,10 @@ logs/
 venv/
 
 __pycache__/
+
+asset/
+speaker/
+SenseVoice/
+
+*.wav
+.env
