@@ -7,6 +7,7 @@ import threading
 
 from typing import Dict
 from modules.client import Client
+from modules.game import Game
 from modules.module import Module
 from signals import Signals
 from prompter import Prompter
@@ -42,6 +43,7 @@ async def main():
 
     # 初始化外部客户端
     modules["client"] = Client(signals, True, logger)
+    modules["game"] = Game(signals, True, logger)
     
     # 初始化模型
     text_llm = textLLMWrapper.TextLLMWrapper(signals, tts, modules)
