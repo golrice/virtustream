@@ -21,7 +21,7 @@ class Client(Module):
         async def chat_message(data):
             # 保持数据只有最多十条
             if len(self._signals.recentMessages) >= MAX_MESSAGES_LEN:
-                self._signals.recentMessages.pop()
+                self._signals.recentMessages.pop(0)
 
             self._signals.recentMessages.append(data)
             # 触发setter

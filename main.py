@@ -33,7 +33,7 @@ async def main():
     signals = Signals(logger)
 
     # 初始化语音文字功能
-    stt = STT(signals)
+    stt = STT(signals, logger)
     tts = TTS(signals)
 
     # 初始化模块
