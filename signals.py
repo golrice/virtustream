@@ -16,11 +16,13 @@ class Signals():
         self._new_message = False # 人已经读了某些话
         self._recent_messages = []
         self._history : List[Dict[str, str]]= []
+        self._AI_expres = "初始" #模型表情
 
         self._terminate = False
 
         self.sio_queue = queue.SimpleQueue()
     
+
     @property
     def terminate(self):
         return self._terminate
@@ -51,6 +53,15 @@ class Signals():
         else:
             self._logger.info("SIGNALS: Human Talking Stop")
     
+    @property
+    def AI_expres(self):
+        return self._AI_expres
+    
+    @AI_expres.setter
+    def AI_expres(self, value):
+        self._AI_expres = value
+
+
     @property
     def AI_speaking(self):
         return self._AI_speaking
