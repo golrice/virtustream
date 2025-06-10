@@ -6,7 +6,7 @@ LOG_DIR = "logs"
 
 # 来自外部的user的消息数量
 MAX_MESSAGES_LEN = 10
-
+MAX_MESSAGES_LEN_FROM_GAME = 20
 HOST_NAME="user"
 AI_NAME="Nico"
 
