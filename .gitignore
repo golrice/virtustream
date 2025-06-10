@@ -1,7 +1,7 @@
 doc/
 logs/
 
-venv1/
+venv/
 
 __pycache__/
 
