@@ -36,6 +36,10 @@ class TTS():
         self._ws_lock = threading.Lock()  # 添加线程锁
         self._ws_thread = None  # 添加 WebSocket 线程变量
         self.TIMEOUT = 60  # 添加超时时间配置，单位为秒
+        self._ws_retry_count = 0
+        self._max_retries = 3
+        self._retry_delay = 1
+        self._ws_ready = threading.Event()  # 添加连接就绪事件
 
     def _create_url(self):
         """生成鉴权url"""
@@ -89,31 +93,65 @@ class TTS():
         
     def _on_close(self, ws, *args):
         self._logger.info("WebSocket连接关闭")
-        self._ws = None
-        
+        self._ws_ready.clear()  # 清除连接就绪状态
+        with self._ws_lock:
+            self._ws = None
+    
     def _on_open(self, ws):
         self._logger.info("WebSocket连接已建立")
+        self._ws_ready.set()  # 设置连接就绪状态
         
     def _ensure_ws_connection(self):
         """确保 WebSocket 连接存在且有效"""
         with self._ws_lock:
-            if self._ws is None or not self._ws.sock:
-                websocket.setdefaulttimeout(self.TIMEOUT)  # 设置 WebSocket 连接超时
-                self._ws = websocket.WebSocketApp(
-                    self._create_url(),
-                    on_message=self._on_message,
-                    on_error=self._on_error,
-                    on_close=self._on_close
-                )
-                self._ws.on_open = self._on_open
-                
-                if self._ws_thread is not None and self._ws_thread.is_alive():
-                    self._ws_thread.join(timeout=1)
+            while self._ws_retry_count < self._max_retries:
+                try:
+                    if self._ws is not None and self._ws.sock and self._ws_ready.is_set():
+                        return True
+
+                    # 清理旧连接
+                    if self._ws:
+                        try:
+                            self._ws.close()
+                        except:
+                            pass
+                        self._ws = None
+
+                    if self._ws_thread and self._ws_thread.is_alive():
+                        self._ws_thread.join(timeout=1)
+
+                    # 创建新连接
+                    self._ws_ready.clear()
+                    websocket.setdefaulttimeout(self.TIMEOUT)
+                    self._ws = websocket.WebSocketApp(
+                        self._create_url(),
+                        on_message=self._on_message,
+                        on_error=self._on_error,
+                        on_close=self._on_close
+                    )
+                    self._ws.on_open = self._on_open
                     
-                self._ws_thread = threading.Thread(target=self._ws.run_forever)
-                self._ws_thread.daemon = True  # 设置为守护线程
-                self._ws_thread.start()
-                time.sleep(0.5)  # 等待连接建立
+                    self._ws_thread = threading.Thread(target=self._ws.run_forever)
+                    self._ws_thread.daemon = True
+                    self._ws_thread.start()
+
+                    # 等待连接建立
+                    if self._ws_ready.wait(timeout=5):  # 等待连接就绪
+                        self._ws_retry_count = 0  # 重置重试计数
+                        return True
+                    
+                    self._ws_retry_count += 1
+                    if self._ws_retry_count < self._max_retries:
+                        time.sleep(self._retry_delay)
+                    
+                except Exception as e:
+                    self._logger.error(f"WebSocket连接失败: {e}")
+                    self._ws_retry_count += 1
+                    if self._ws_retry_count < self._max_retries:
+                        time.sleep(self._retry_delay)
+
+            self._logger.error("WebSocket连接重试次数已达上限")
+            return False
 
     def text_to_speech(self, text: str,
                       speaker_path: Optional[str] = None,
@@ -128,9 +166,15 @@ class TTS():
         :return: 音频数据
         """
         audio_data = []
-        self._ensure_ws_connection()  # 确保连接存在
         
         try:
+            if not self._ensure_ws_connection():
+                raise Exception("无法建立WebSocket连接")
+
+            # 发送数据之前再次检查连接状态
+            if not (self._ws and self._ws.sock and self._ws_ready.is_set()):
+                raise Exception("WebSocket连接已断开")
+
             data = {
                 "common": {"app_id": self.APPID},
                 "business": self.voice_params,

@@ -45,16 +45,25 @@ class TextLLMWrapper():
         return [{"role": x.name, "content": x.text} for x in injections if x.priority != -1]
     
     def extract_emotion_and_text(self, message: str) -> tuple[str, str]:
-        """提取文本中的表情和清理后的文本"""
+        """提取文本中的表情和清理后的文本
+        Args:
+            message: 包含表情的原始文本，如：（高兴）"你好啊"
+        Returns:
+            tuple: (清理后的文本, 表情)，如：("你好啊", "高兴")
+        """
         emotion = ""
-        # 匹配括号中的内容
-        pattern = r'\((.*?)\)'
+        # 修改正则表达式以匹配中文括号
+        pattern = r'（(.*?)）'
         matches = re.findall(pattern, message)
         if matches:
             emotion = matches[0]  # 取第一个匹配的表情
         
-        # 删除所有括号及其内容
+        # 删除所有中文括号及其内容
         clean_text = re.sub(pattern, '', message).strip()
+        
+        # 如果清理后的文本以引号开头和结尾，去除引号
+        clean_text = clean_text.strip('"')
+        
         return clean_text, emotion
 
     def generate_prompt(self):
@@ -101,7 +110,7 @@ class TextLLMWrapper():
 
         # 提取表情和清理文本
         clean_text, emotion = self.extract_emotion_and_text(AI_message)
-        
+        print(f"clean_text = {clean_text}, emotion = {emotion}")
         # 设置表情信号
         if emotion:
             self._signals.AI_expres = emotion
