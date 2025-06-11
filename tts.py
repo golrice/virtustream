@@ -23,9 +23,9 @@ class TTS():
         self._logger = get_logger("tts")
         load_dotenv()
         # 科大讯飞参数配置
-        self.APPID = os.getenv("APPID")
-        self.APIKey = os.getenv("APIKey")
-        self.APISecret = os.getenv("APISecret")
+        self.APPID = os.getenv("TTS_APPID")
+        self.APIKey = os.getenv("TTS_APIKey")
+        self.APISecret = os.getenv("TTS_APISecret")
         
         # 语音合成参数
         self.voice_params = TTS_PARAMS.copy()  # 使用深拷贝避免修改原始参数

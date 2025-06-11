@@ -4,7 +4,6 @@ import websockets
 import json
 import random
 import uuid
-import threading
 
 from modules.module import Module
 from signals import Signals

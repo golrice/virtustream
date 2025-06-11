@@ -1,12 +1,11 @@
 from copy import deepcopy
 import time
 from typing import Dict, List
-from constant import AI_NAME, IHISTORY, ISYSTEM, IUSER, MODEL_NAME, STOP_STRINGS, SYSTEM_PROMPT
+from constant import IHISTORY, ISYSTEM, MODEL_NAME, SYSTEM_PROMPT
 from modules.injection import Injection
 from modules.module import Module
 from signals import Signals
 from tts import TTS
-from typing import Optional
 from openai import OpenAI
 from dotenv import load_dotenv
 import os
