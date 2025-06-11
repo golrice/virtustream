@@ -100,8 +100,16 @@ class TextLLMWrapper():
         self._signals._last_message_time = time.time()
         self._signals._AI_thinking = False
 
+        # 提取表情和清理文本
+        clean_text, emotion = self.extract_emotion_and_text(AI_message)
+        
+        # 设置表情信号
+        if emotion:
+            self._signals.AI_expres = emotion
+
+        # 更新历史记录使用原始消息（包含表情），但TTS使用清理后的文本
         self._signals._history.append({"role": "assistant", "content": AI_message})
-        self._tts.play(AI_message)
+        self._tts.play(clean_text)
 
 if __name__ == "__main__":
     logger = get_logger()
