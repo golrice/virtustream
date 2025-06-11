@@ -151,6 +151,7 @@ class Game(Module):
         # 主循环
         while not self._signals.terminate:
             await asyncio.sleep(0.5)
+        await self._io.disconnect()
         
         # 清理TCP服务器
         if self._tcp_server_rec:

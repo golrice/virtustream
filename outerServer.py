@@ -1,14 +1,13 @@
 import sys
 import socketio
-import asyncio
 from aiohttp import web
-import traceback
 from room_manager import Config, RoomManager
 
 server = socketio.AsyncServer(async_mode='aiohttp', cors_allowed_origins='*')
 app = web.Application()
 server.attach(app)
 manager = RoomManager(server)
+websocket = None
 
 @server.event
 async def connect(sid, environ):
@@ -18,14 +17,13 @@ async def connect(sid, environ):
 async def disconnect(sid):
     print(f"disconnect: {sid}")
 
-async def task():
+async def get_websocket():
     try:
         manager.running = True
         manager.logger.info("开始监控直播间")
 
         websocket = await manager.client.connect()
-        tasks = manager.client.get_tasks(websocket)
-        return tasks
+        return websocket
 
     except KeyboardInterrupt:
         print("\n[调试] 收到程序中断信号")
@@ -34,12 +32,15 @@ async def task():
 
 async def init_app():
     try:
-        back_tasks = await task()
+        websocket = await get_websocket()
+        server.start_background_task(manager.client.recvLoop, websocket)
+        server.start_background_task(manager.client.heartBeat, websocket)
+        server.start_background_task(manager.client.appheartBeat)
     except Exception as e:
-        print(f"fail to init bilibili server")
-    server.start_background_task(await asyncio.gather(*back_tasks))
+        manager.logger.error(f"初始化失败: {e}")
+        raise
+    
     return app
-
 if __name__ == "__main__":
     print("[调试] B站直播间管理系统启动")
 
@@ -56,8 +57,15 @@ if __name__ == "__main__":
         manager.logger.error("客户端初始化失败，无法开始监控")
         sys.exit(1)
 
-    with manager.client:
-        try:
-            web.run_app(init_app(), host='0.0.0.0', port=8080)
-        except KeyboardInterrupt:
-            print("quit...")
+    try:
+        # 正确调用方式
+        web.run_app(init_app(), host='0.0.0.0', port=8080)
+    except KeyboardInterrupt:
+        manager.logger.info("服务正常终止")
+    except Exception as e:
+        manager.logger.error(f"服务异常终止: {e}")
+    finally:
+        # 确保资源清理
+        if hasattr(manager, 'client'):
+            manager.client.__exit__()
+        manager.logger.info("资源清理完成")

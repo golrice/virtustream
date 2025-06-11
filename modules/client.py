@@ -52,6 +52,7 @@ class Client(Module):
 
         while not self._signals.terminate:
             await asyncio.sleep(0.5)
+        await self._io.disconnect()
 
     def cleanup(self):
         self._signals.recentMessages = []
