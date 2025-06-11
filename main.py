@@ -44,7 +44,7 @@ async def main():
 
     # 初始化外部客户端
     modules["client"] = Client(signals, True, logger)
-    modules["game"] = Game(signals, True, logger)
+    # modules["game"] = Game(signals, True, logger)
     
     # 初始化模型
     text_llm = textLLMWrapper.TextLLMWrapper(signals, tts, modules)
