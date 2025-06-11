@@ -31,7 +31,7 @@ class TextLLMWrapper():
         self.client = OpenAI(api_key=os.getenv("LLM_API_KEY"), base_url="https://api.deepseek.com")
 
     # 聚合所有的prompt注入 包括所有外部模块
-    def assemble_injectinos(self, injections: List[Injection]=None):
+    def assemble_injections(self, injections: List[Injection]=None):
         if injections is None:
             injections = []
         
@@ -67,7 +67,7 @@ class TextLLMWrapper():
 
         # 拼接所有的prompt
         injections = [Injection(self.SYSTEM_PROMPT, ISYSTEM, "system"), Injection(msg, IHISTORY)]
-        prompt = self.assemble_injectinos(injections)
+        prompt = self.assemble_injections(injections)
 
         return prompt
     

@@ -6,7 +6,7 @@ LOG_DIR = "logs"
 
 # 来自外部的user的消息数量
 MAX_MESSAGES_LEN = 10
-
+MAX_MESSAGES_LEN_FROM_GAME = 20
 HOST_NAME="user"
 AI_NAME="Nico"
 
@@ -81,3 +81,9 @@ TTS_PARAMS = {
     "reg": "2",        # 添加发音人语言
     "rdn": "0"         # 添加数字发音方式
 }
+# B站参数
+B_BILI_API_HOST = "https://live-open.biliapi.com"
+B_ROOM_DATA_INTERVAL = 300
+B_HEARTBEAT_INTERVAL = 20  # 改为20秒，与ws.py保持一致
+B_APP_HEARTBEAT_INTERVAL = 20  # 应用心跳间隔
+B_MESSAGE_FILE = "message.txt"

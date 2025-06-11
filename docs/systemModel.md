@@ -218,11 +218,12 @@ sequenceDiagram
 
     User-->>LLM: 发布事件 proc_msg
     User-->>Game: 发布事件 start_game
+    Game->>Game:响应用户指令
     Game-->>LLM: 发布事件 describe
     LLM-->>TTS: 发布事件 llm_output
     TTS->>TTS: 合成语音
     TTS->>User: 输出语音
-    LLM-->Advatar: 发布事件 llm_output
+    LLM-->>Advatar: 发布事件 llm_output
     Advatar->>Advatar: 生成表情动作
 ```
 
