@@ -1,149 +1,188 @@
 import time
 from signals import Signals
 import os
-import torch
-import ChatTTS
+import websocket
+import threading
+import queue
+import base64
+import hmac
+import json
+import datetime
+import hashlib
+import urllib
 import sounddevice as sd
-import soundfile
 import numpy as np
 from typing import Optional
-
+from dotenv import load_dotenv
 from utils import get_logger
-
+from constant import TTS_PARAMS
 class TTS():
     def __init__(self, sg: Signals):
         self._signals = sg
         self._stream = None
-
-        # 初始化ChatTTS
-        self.chat = ChatTTS.Chat()
-        self.chat.load(compile=False)
-
-        # 默认参数
-        self.default_params_infer_code = {
-            'spk_emb': None,
-            'temperature': 0.01,
-            'top_P': 0.7,
-            'top_K': 20
-        }
-
-        self.default_params_refine_text = {
-            'prompt': '[oral_2][laugh_0][break_6]'
-        }
-
-        # 确保speakers目录存在
-        os.makedirs("speaker", exist_ok=True)
-
-        self.speaker_path = self.generate_speaker("speaker1")
-
+        self._logger = get_logger("tts")
+        load_dotenv()
+        # 科大讯飞参数配置
+        self.APPID = os.getenv("APPID")
+        self.APIKey = os.getenv("APIKey")
+        self.APISecret = os.getenv("APISecret")
+        
+        # 语音合成参数
+        self.voice_params = TTS_PARAMS.copy()  # 使用深拷贝避免修改原始参数
+        
+        self.audio_queue = queue.Queue()
         self._signals._tts_ready = True
-    
-    def generate_speaker(self, speaker_name: str = None) -> str:
-        """
-        生成随机音色
-        :param speaker_name: 音色保存名称
-        :return: 音色文件路径
-        """
-        speaker = self.chat.sample_random_speaker()
-        # print(speaker)
+        self._ws = None  # 添加 WebSocket 连接实例变量
+        self._ws_lock = threading.Lock()  # 添加线程锁
+        self._ws_thread = None  # 添加 WebSocket 线程变量
+        self.TIMEOUT = 60  # 添加超时时间配置，单位为秒
 
-        if not speaker_name:
-            import time
-            speaker_name = f"speaker_{int(time.time())}"
+    def _create_url(self):
+        """生成鉴权url"""
+        url = 'wss://tts-api.xfyun.cn/v2/tts'
+        # 生成RFC1123格式的时间戳
+        now = datetime.datetime.now(datetime.timezone.utc)  # 使用 UTC 时间
+        date = now.strftime('%a, %d %b %Y %H:%M:%S GMT')
+        
+        # 拼接字符串
+        signature_origin = f"host: tts-api.xfyun.cn\ndate: {date}\nGET /v2/tts HTTP/1.1"
+        
+        # 进行hmac-sha256加密
+        signature_sha = hmac.new(self.APISecret.encode('utf-8'),
+                            signature_origin.encode('utf-8'),
+                            digestmod=hashlib.sha256).digest()
+        signature_sha_base64 = base64.b64encode(signature_sha).decode()
+        
+        authorization_origin = f'api_key="{self.APIKey}", algorithm="hmac-sha256", headers="host date request-line", signature="{signature_sha_base64}"'
+        authorization = base64.b64encode(authorization_origin.encode('utf-8')).decode()
+        
+        # 将请求的鉴权参数组合为字典
+        v = {
+            "authorization": authorization,
+            "date": date,
+            "host": "tts-api.xfyun.cn"
+        }
+        # 拼接鉴权参数，生成url
+        url = url + '?' + urllib.parse.urlencode(v)
+        return url
 
-        save_path = os.path.join("speaker", f"{speaker_name}.pt")
-        torch.save(speaker, save_path)
+    def _on_message(self, ws, message):
+        try:
+            message = json.loads(message)
+            if message["code"] != 0:
+                self._logger.error(f'合成失败: {message["code"]}, {message["message"]}')
+                return
+            
+            data = base64.b64decode(message["data"]["audio"])
+            audio_array = np.frombuffer(data, dtype=np.int16)
+            self.audio_queue.put(audio_array)
+            
+            if message["data"]["status"] == 2:
+                self.audio_queue.put(None)  # 结束标记
+                
+        except Exception as e:
+            self._logger.error(f"处理消息时出错: {str(e)}")
 
-        return save_path
-
-    def load_speaker(self, speaker_name: str) -> str:
-        """
-        加载音色
-        :param speaker_path: 音色文件路径
-        :return: 音色embedding
-        """
-        speaker_path = os.path.join("speaker", f"{speaker_name}.pt")
-        if not os.path.exists(speaker_path):
-            return None
-
-        return speaker_path
+    def _on_error(self, ws, error):
+        self._logger.error(f"WebSocket错误: {error}")
+        self._ws = None  # 清空连接以便重新建立
+        
+    def _on_close(self, ws, *args):
+        self._logger.info("WebSocket连接关闭")
+        self._ws = None
+        
+    def _on_open(self, ws):
+        self._logger.info("WebSocket连接已建立")
+        
+    def _ensure_ws_connection(self):
+        """确保 WebSocket 连接存在且有效"""
+        with self._ws_lock:
+            if self._ws is None or not self._ws.sock:
+                websocket.setdefaulttimeout(self.TIMEOUT)  # 设置 WebSocket 连接超时
+                self._ws = websocket.WebSocketApp(
+                    self._create_url(),
+                    on_message=self._on_message,
+                    on_error=self._on_error,
+                    on_close=self._on_close
+                )
+                self._ws.on_open = self._on_open
+                
+                if self._ws_thread is not None and self._ws_thread.is_alive():
+                    self._ws_thread.join(timeout=1)
+                    
+                self._ws_thread = threading.Thread(target=self._ws.run_forever)
+                self._ws_thread.daemon = True  # 设置为守护线程
+                self._ws_thread.start()
+                time.sleep(0.5)  # 等待连接建立
 
     def text_to_speech(self, text: str,
-                       speaker_path: Optional[str] = None,
-                       refine_text: bool = False,
-                       play_audio: bool = True) -> np.ndarray:
+                      speaker_path: Optional[str] = None,
+                      refine_text: bool = False,
+                      play_audio: bool = True) -> np.ndarray:
         """
         文本转语音
         :param text: 输入文本
-        :param speaker_path: 音色文件路径
-        :param refine_text: 是否优化文本
+        :param speaker_path: 兼容参数，不使用
+        :param refine_text: 兼容参数，不使用
         :param play_audio: 是否实时播放音频
         :return: 音频数据
         """
-        # 加载音色
-        speaker = None
-        if speaker_path:
-            speaker = torch.load(speaker_path)
-        else:
-            print("--未找到音色--")
-            return np.array([])
-        # 设置infer_code参数
-        infer_code_params = self.default_params_infer_code.copy()
-        if speaker is not None:
-            infer_code_params['spk_emb'] = speaker
-        params_infer_code = ChatTTS.Chat.InferCodeParams(
-            spk_emb=infer_code_params['spk_emb'],  # add sampled speaker
-            temperature=infer_code_params['temperature'],  # using custom temperature
-            top_P=infer_code_params['top_P'],  # top P decode
-            top_K=infer_code_params['top_K'],  # top K decode
-        )
-        # oral：连接词，AI可能会自己加字，取值范围 0-9，比如：卡壳、嘴瓢、嗯、啊、就是之类的词
-        # laugh：笑，取值范围 0-9
-        # break：停顿，取值范围 0-9
-        refine_text_params = self.default_params_refine_text.copy()
-        params_refine_text = ChatTTS.Chat.RefineTextParams(
-            prompt=refine_text_params['prompt'],
-        )
-        # 文本优化
-        if refine_text:
-            text = self.chat.infer(text,
-                                    refine_text_only=True,
-                                    params_refine_text=params_refine_text,
-                                    params_infer_code=params_infer_code)
-            # text = texts[0] if texts else text  #这行代码的作用是?
-            print(text)
-
-        # 生成语音
-        wavs = self.chat.infer(text,
-                               params_infer_code=params_infer_code)
-
-        if not wavs:
-            raise ValueError("语音生成失败")
-        soundfile.write("output1.wav", wavs[0], 24000)
-        # if play_audio:
-        #     playsound(r"E:\pycharm_project\ChatTTS\output1.wav")
-        audio_data = wavs[0]
+        audio_data = []
+        self._ensure_ws_connection()  # 确保连接存在
+        
+        try:
+            data = {
+                "common": {"app_id": self.APPID},
+                "business": self.voice_params,
+                "data": {
+                    "status": 2,
+                    "text": base64.b64encode(text.encode('utf-8')).decode(),
+                }
+            }
+            self._ws.send(json.dumps(data))
+            
+            # 收集音频数据
+            while True:
+                data = self.audio_queue.get(timeout=self.TIMEOUT)  # 使用配置的超时时间
+                if data is None:
+                    break
+                audio_data.extend(data)
+                
+        except queue.Empty:
+            self._logger.error("等待音频数据超时")
+            return np.array([], dtype=np.float32)
+        except Exception as e:
+            self._logger.error(f"语音合成错误: {str(e)}")
+            return np.array([], dtype=np.float32)
+            
+        audio_data = np.array(audio_data, dtype=np.float32) / 32768.0
 
         # 实时播放
-        # if play_audio:
-        #     sd.play(audio_data, samplerate=24000)
-        #     sd.wait()
+        if play_audio and len(audio_data) > 0:
+            sd.play(audio_data, samplerate=16000)
+            sd.wait()
 
         return audio_data
-    
+        
     def play(self, message):
         if not message.strip():
             return
 
         self._signals._AI_speaking = True
-        # self._signals.sio_queue.put(("current_message", message))
-        # 语音播放 steam ... play or something else
-        print(f"simulating tts... I am talking...")
-        self.text_to_speech(message, self.speaker_path)
-        self._signals._AI_speaking = False
+        try:
+            self.text_to_speech(message)
+        except Exception as e:
+            self._logger.error(f"播放失败: {str(e)}")
+        finally:
+            self._signals._AI_speaking = False
 
     def stop(self):
-        self._stream.stop()
+        """停止并清理资源"""
+        if self._stream:
+            self._stream.stop()
+        if self._ws:
+            self._ws.close()
+        self._ws = None
         self._signals._AI_speaking = False
 
     def audio_started(self):
@@ -158,7 +197,14 @@ if __name__ == "__main__":
     signals = Signals(logger)
 
     tts = TTS(signals)
+    print("API配置信息：")
+    print(f"APPID: {tts.APPID}")
+    print(f"APIKey: {tts.APIKey}")
+    print(f"APISecret: {tts.APISecret[:5]}...{tts.APISecret[-5:]}")
     start = time.time()
-    tts.text_to_speech("你好,我是mico酱,是一名主播", tts.generate_speaker("speaker1"))
+    tts.text_to_speech("你好,我是mico酱,是一名主播")
     end = time.time()
     print(f"costed: {end - start}s")
+
+
+
