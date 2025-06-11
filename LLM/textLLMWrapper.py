@@ -10,7 +10,7 @@ from typing import Optional
 from openai import OpenAI
 from dotenv import load_dotenv
 import os
-
+import re
 from utils import get_logger
 
 class TextLLMWrapper():
@@ -28,7 +28,7 @@ class TextLLMWrapper():
         # 加载一些本地的信息...
         self.SYSTEM_PROMPT = SYSTEM_PROMPT
         load_dotenv()
-        self.client = OpenAI(api_key=os.getenv("API_KEY"), base_url="https://api.deepseek.com")
+        self.client = OpenAI(api_key=os.getenv("LLM_API_KEY"), base_url="https://api.deepseek.com")
 
     # 聚合所有的prompt注入 包括所有外部模块
     def assemble_injections(self, injections: List[Injection]=None):
@@ -45,6 +45,19 @@ class TextLLMWrapper():
 
         return [{"role": x.name, "content": x.text} for x in injections if x.priority != -1]
     
+    def extract_emotion_and_text(self, message: str) -> tuple[str, str]:
+        """提取文本中的表情和清理后的文本"""
+        emotion = ""
+        # 匹配括号中的内容
+        pattern = r'\((.*?)\)'
+        matches = re.findall(pattern, message)
+        if matches:
+            emotion = matches[0]  # 取第一个匹配的表情
+        
+        # 删除所有括号及其内容
+        clean_text = re.sub(pattern, '', message).strip()
+        return clean_text, emotion
+
     def generate_prompt(self):
         # 拷贝历史消息 防止更新过程出现冲突
         historys = deepcopy(self._signals._history)
@@ -87,8 +100,16 @@ class TextLLMWrapper():
         self._signals._last_message_time = time.time()
         self._signals._AI_thinking = False
 
+        # 提取表情和清理文本
+        clean_text, emotion = self.extract_emotion_and_text(AI_message)
+        
+        # 设置表情信号
+        if emotion:
+            self._signals.AI_expres = emotion
+
+        # 更新历史记录使用原始消息（包含表情），但TTS使用清理后的文本
         self._signals._history.append({"role": "assistant", "content": AI_message})
-        self._tts.play(AI_message)
+        self._tts.play(clean_text)
 
 if __name__ == "__main__":
     logger = get_logger()
