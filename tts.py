@@ -165,7 +165,7 @@ class TTS():
         return audio_data
         
     def play(self, message):
-        if not message.strip():
+        if not message.strip() or self._signals.AI_speaking:
             return
 
         self._signals._AI_speaking = True
