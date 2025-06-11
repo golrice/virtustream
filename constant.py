@@ -71,3 +71,10 @@ VOICE_DTYPE: str = 'int16'
 VOICE_SILENCE_THRESHOLD_DB: float = 10.0
 VOICE_SILENCE_DURATION: float = 1.5
 VOICE_UPDATE_INTERVAL: float = 0.1
+
+# B站参数
+B_BILI_API_HOST = "https://live-open.biliapi.com"
+B_ROOM_DATA_INTERVAL = 300
+B_HEARTBEAT_INTERVAL = 20  # 改为20秒，与ws.py保持一致
+B_APP_HEARTBEAT_INTERVAL = 20  # 应用心跳间隔
+B_MESSAGE_FILE = "message.txt"

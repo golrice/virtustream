@@ -1,4 +1,3 @@
-import random
 import asyncio
 import logging
 import socketio
@@ -7,8 +6,6 @@ from modules.injection import Injection
 from signals import Signals
 from modules.module import Module
 import re
-import sys
-import os
 
 class Game(Module):
     def __init__(self, signals: Signals, enable: bool, logger: logging.Logger):

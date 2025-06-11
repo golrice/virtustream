@@ -1,45 +1,40 @@
 import asyncio
+import os
+from dotenv import load_dotenv
+from socketio import AsyncServer
 import websockets
 import json
-import zlib
-import threading
 import time
 import requests
-import socket
-import struct
-import traceback
-from datetime import datetime
-from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import hmac
-import uuid
-import base64
 import random
-from urllib.parse import urlencode
 from utils import get_logger
 import proto
 from hashlib import sha256
-from outerServer import server
+from constant import B_APP_HEARTBEAT_INTERVAL, B_BILI_API_HOST, B_HEARTBEAT_INTERVAL, B_MESSAGE_FILE, B_ROOM_DATA_INTERVAL
+
+load_dotenv()
 
 # ========== 配置区域 ==========
 class Config:
     # B站API相关密钥
-    ACCESS_KEY_ID = "GrRanjX73642I5R32gz3CsSC"
-    ACCESS_KEY_SECRET = "fbj6LhG89sQeZQgabyxtmpUinBbsIb"
+    ACCESS_KEY_ID = os.getenv("B_ACCESS_KEY_ID")
+    ACCESS_KEY_SECRET = os.getenv("B_ACCESS_KEY_SECRET")
 
     # 项目ID
-    APP_ID = 1752051893367
+    APP_ID = int(os.getenv("B_APP_ID"))
 
     # B站用户身份验证信息
-    SESSDATA = "da712523%2C1765011588%2C0af6f%2A62CjAp6f7bhrrDgnY4aGaus4rIf5BUqy3m6L0BmI0DIQDTjUs5NxX3E7xcrYTxafKaLnkSVkxfcl9kOHd2dUpWWFFiRmRWaWJsTlZUeFVCeTdJb2xLRkJMNUNrTm1MOG5pUmxsUzljdU5lUjNWa2lMWXpMcWlNdUNWSWFQX0pxRmc5Q3I1V28tOFBnIIEC"
-    BILI_JCT = "816da823f95eddd05b8875abb84b6ab8"
-    BUVID3 = "A32A1D00-E39A-2FF2-F27D-131EA3F6C42F00447infoc"
-    IDCODE = "EO0XSX65XDKW1"
+    SESSDATA = os.getenv("B_SESSDATA")
+    BILI_JCT = os.getenv("B_BILI_JCT")
+    BUVID3 = os.getenv("B_BUVID3")
+    IDCODE = os.getenv("B_IDCODE")
 
     # 直播间配置
-    ROOM_DISPLAY_ID = 1913428776
-    LOCAL_PORT = 10000
-    MESSAGE_FILE = "message.txt"
+    ROOM_DISPLAY_ID = int(os.getenv("B_ROOM_DISPLAY_ID"))
+    LOCAL_PORT = int(os.getenv("B_LOCAL_PORT"))
+    MESSAGE_FILE = B_MESSAGE_FILE
 
     # 长连信息配置（动态更新）
     WSS_LINKS = []  # WebSocket连接地址列表
@@ -54,12 +49,12 @@ class Config:
     ANCHOR_UNION_ID = "" # 开发者维度下用户唯一标识
 
     # 时间间隔（秒）
-    ROOM_DATA_INTERVAL = 300
-    HEARTBEAT_INTERVAL = 20  # 改为20秒，与ws.py保持一致
-    APP_HEARTBEAT_INTERVAL = 20  # 应用心跳间隔
+    ROOM_DATA_INTERVAL = B_ROOM_DATA_INTERVAL
+    HEARTBEAT_INTERVAL = B_HEARTBEAT_INTERVAL
+    APP_HEARTBEAT_INTERVAL = B_APP_HEARTBEAT_INTERVAL
 
     # API域名
-    BILI_API_HOST = "https://live-open.biliapi.com"
+    BILI_API_HOST = B_BILI_API_HOST
 
 # ========== 全局工具函数 ==========
 
@@ -212,28 +207,21 @@ class Config:
 
 # ========== B站客户端实现 ==========
 class BiliClient:
-    def __init__(self, idCode, appId, key, secret, host):
+    def __init__(self, idCode, appId, key, secret, host, connect_server):
         self.idCode = idCode
         self.appId = appId
         self.key = key
         self.secret = secret
         self.host = host
         self.gameId = ''
-        pass
+        self.connect_server = connect_server
 
     # 事件循环
     def run(self):
         loop = asyncio.get_event_loop()
         # 建立连接
         websocket = loop.run_until_complete(self.connect())
-        tasks = [
-            # 读取信息
-            asyncio.ensure_future(self.recvLoop(websocket)),
-            # 发送心跳
-            asyncio.ensure_future(self.heartBeat(websocket)),
-             # 发送游戏心跳
-            asyncio.ensure_future(self.appheartBeat()),
-        ]
+        tasks = self.get_tasks(websocket)
         loop.run_until_complete(asyncio.gather(*tasks))
 
     # http的签名
@@ -338,7 +326,7 @@ class BiliClient:
             room_id = respBody["data"]["room_id"]
             print(f"[错误] 长连在直播间 {room_id} 结束")
         print(f"[BiliClient] 收到消息: {msg}")
-        await server.emit('chat_message', msg)
+        await self.connect_server.emit('chat_message', msg)
 
 
     async def appheartBeat(self):
@@ -402,6 +390,16 @@ class BiliClient:
         # 鉴权
         await self.auth(websocket, authBody)
         return websocket
+    
+    def get_tasks(self, websocket):
+        return [
+            # 读取信息
+            asyncio.ensure_future(self.recvLoop(websocket)),
+            # 发送心跳
+            asyncio.ensure_future(self.heartBeat(websocket)),
+             # 发送游戏心跳
+            asyncio.ensure_future(self.appheartBeat()),
+        ]
 
     def __enter__(self):
         print("[BiliClient] enter")
@@ -416,10 +414,11 @@ class BiliClient:
         print("[BiliClient] end app success", params)
 # ========== 房间管理器 ==========
 class RoomManager:
-    def __init__(self):
+    def __init__(self, connect_server: AsyncServer):
         self.logger = get_logger("room_manager")
         self.client = None
         self.running = False
+        self.connect_server = connect_server
 
     def initialize_client(self):
         """初始化B站客户端"""
@@ -429,7 +428,8 @@ class RoomManager:
                 appId=Config.APP_ID,  # 应用ID，需要从B站开放平台获取
                 key=Config.ACCESS_KEY_ID,
                 secret=Config.ACCESS_KEY_SECRET,
-                host=Config.BILI_API_HOST
+                host=Config.BILI_API_HOST,
+                connect_server=self.connect_server
             )
             self.logger.info("B站客户端初始化成功")
             return True

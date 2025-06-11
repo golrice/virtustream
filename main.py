@@ -14,7 +14,7 @@ from signals import Signals
 from prompter import Prompter
 from stt import STT
 from tts import TTS
-from LLM import LLMState, textLLMWrapper
+from LLM import textLLMWrapper
 from utils import get_logger
 from constant import LOG_DIR
 
@@ -62,9 +62,11 @@ async def main():
         module_threads[name] = threading.Thread(target=module.init_event_loop, daemon=True)
         module_threads[name].start()
     
-    vtuber = VTuber(signals, True, logger)
-    module_threads["vtube_studio_client"] = threading.Thread(target=vtuber.init_vtube_studio_client, daemon=True)
-    module_threads["vtube_expression_stream"] = threading.Thread(target=vtuber.init_expression_stream, daemon=True)
+    # vtuber = VTuber(signals, True, logger)
+    # module_threads["vtube_studio_client"] = threading.Thread(target=vtuber.init_vtube_studio_client, daemon=True)
+    # module_threads["vtube_studio_client"].start()
+    # module_threads["vtube_expression_stream"] = threading.Thread(target=vtuber.init_expression_stream, daemon=True)
+    # module_threads["vtube_expression_stream"].start()
 
     # 定时监测生命周期
     while not signals.terminate:

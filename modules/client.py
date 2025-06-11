@@ -6,7 +6,6 @@ from constant import IUSER, MAX_MESSAGES_LEN
 from modules.injection import Injection
 from signals import Signals
 from modules.module import Module
-from modules.vtuber import connect_and_start
 
 class Client(Module):
     def __init__(self, signals: Signals, enable: bool, logger: logging.Logger):
@@ -50,9 +49,6 @@ class Client(Module):
     async def run(self):
         # 获取用户的输入并且通过signals传输到系统中
         await self._io.connect("http://localhost:8080")
-
-        await connect_and_start(self._signals)
-        #检测_signals.terminate自动推出
 
         while not self._signals.terminate:
             await asyncio.sleep(0.5)
