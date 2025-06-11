@@ -43,8 +43,8 @@ async def main():
     module_threads: Dict[str, threading.Thread] = {}
 
     # 初始化外部客户端
-    modules["client"] = Client(signals, True, logger)
-    # modules["game"] = Game(signals, True, logger)
+    modules["client"] = Client(signals, True)
+    modules["game"] = Game(signals, True)
     
     # 初始化模型
     text_llm = textLLMWrapper.TextLLMWrapper(signals, tts, modules)

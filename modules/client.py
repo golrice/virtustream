@@ -6,12 +6,13 @@ from constant import IUSER, MAX_MESSAGES_LEN
 from modules.injection import Injection
 from signals import Signals
 from modules.module import Module
+from utils import get_logger
 
 class Client(Module):
-    def __init__(self, signals: Signals, enable: bool, logger: logging.Logger):
+    def __init__(self, signals: Signals, enable: bool):
         super().__init__(signals, enable)
 
-        self._logger = logger
+        self._logger = get_logger("Client")
 
         self._io = socketio.AsyncClient()
 
@@ -24,6 +25,7 @@ class Client(Module):
                 self._signals.recentMessages.pop(0)
 
             self._signals.recentMessages.append(data)
+            self._logger.info(f"current message: {self._signals.recentMessages}")
             # 触发setter
             self._signals.recentMessages = self._signals.recentMessages
         @self._io.event

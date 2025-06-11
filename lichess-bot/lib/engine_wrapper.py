@@ -207,7 +207,7 @@ class EngineWrapper:
         # logger.info("elapsed time < min_time")
         host = '127.0.0.1'  # 或 'localhost'
         port = 12340
-        total_time = 5      # 总监听时间（5秒）
+        total_time = 1      # 总监听时间（5秒）
         poll_interval = 0.2 # 轮询间隔（0.2秒）
         steps = set()
         try:

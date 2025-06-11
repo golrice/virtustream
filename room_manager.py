@@ -316,17 +316,19 @@ class BiliClient:
             unmae = respBody["data"]["user_info"]["uname"]
             guard_level = respBody["data"]["guard_level"]
             msg = f"{uname} 成为了 {guard_level} 舰长"
-        if respBody["cmd"] == "LIVE_OPEN_PLATFORM_LIVE_START":# 直播开始信息
-            room_id = respBody["data"]["room_id"]
-            msg = f"你在直播间 {room_id} 开始直播"
-        if respBody["cmd"] == "LIVE_OPEN_PLATFORM_LIVE_END":# 直播结束信息
-            room_id = respBody["data"]["room_id"]
-            msg = f"你在直播间 {room_id} 结束直播"
-        if respBody["cmd"] == "LIVE_OPEN_PLATFORM_INTERACTION_END":# 长连结束信息
-            room_id = respBody["data"]["room_id"]
-            print(f"[错误] 长连在直播间 {room_id} 结束")
-        print(f"[BiliClient] 收到消息: {msg}")
-        await self.connect_server.emit('chat_message', msg)
+        
+        # if respBody["cmd"] == "LIVE_OPEN_PLATFORM_LIVE_START":# 直播开始信息
+        #     room_id = respBody["data"]["room_id"]
+        #     msg = f"你在直播间 {room_id} 开始直播"
+        # if respBody["cmd"] == "LIVE_OPEN_PLATFORM_LIVE_END":# 直播结束信息
+        #     room_id = respBody["data"]["room_id"]
+        #     msg = f"你在直播间 {room_id} 结束直播"
+        # if respBody["cmd"] == "LIVE_OPEN_PLATFORM_INTERACTION_END":# 长连结束信息
+        #     room_id = respBody["data"]["room_id"]
+        #     print(f"[错误] 长连在直播间 {room_id} 结束")
+        if msg is not None:
+            print(f"[BiliClient] 收到消息: {msg}")
+            await self.connect_server.emit('chat_message', msg)
 
 
     async def appheartBeat(self):
@@ -338,7 +340,7 @@ class BiliClient:
             r = requests.post(url=postUrl, headers=headerMap,
                           data=params, verify=False)
             data = json.loads(r.content)
-            print("[BiliClient] send appheartBeat success")
+            # print("[BiliClient] send appheartBeat success")
 
 
     # 发送鉴权信息
@@ -374,11 +376,12 @@ class BiliClient:
             resp.unpack(recvBuf)
             if resp.op == 3:
                 # 心跳响应
-                print("[BiliClient] recv heartBeat success")
+                # print("[BiliClient] recv heartBeat success")
+                pass
             elif resp.op == 5:
                 # 弹幕信息
                 respBody = json.loads(resp.body)
-                print("[BiliClient] recv danmu:", respBody)
+                # print("[BiliClient] recv danmu:", respBody)
                 await asyncio.sleep(0.1)  # 确保异步执行
                 await self.handleMassage(respBody)
 

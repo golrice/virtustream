@@ -58,7 +58,7 @@ MODEL_NAME = "deepseek-chat"
 STOP_STRINGS = ["\n", "<|eot_id|>"]
 
 # AI回答等待时间
-WAIT_TIME = 15
+WAIT_TIME = 600
 
 # 语音参数
 VOICE_SENSEVOICE_DIR = os.path.join(os.path.dirname(__file__), "SenseVoice/")

@@ -7,10 +7,12 @@ from signals import Signals
 from modules.module import Module
 import re
 
+from utils import get_logger
+
 class Game(Module):
-    def __init__(self, signals: Signals, enable: bool, logger: logging.Logger):
+    def __init__(self, signals: Signals, enable: bool):
         super().__init__(signals, enable)
-        self._logger = logger
+        self._logger = get_logger("Game")
         self._io = socketio.AsyncClient()
         self._start_game = False
         # 创建两个TCP服务器

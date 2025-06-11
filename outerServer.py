@@ -1,7 +1,9 @@
+import asyncio
 import sys
 import socketio
 from aiohttp import web
 from room_manager import Config, RoomManager
+from aioconsole import ainput
 
 server = socketio.AsyncServer(async_mode='aiohttp', cors_allowed_origins='*')
 app = web.Application()
@@ -30,12 +32,19 @@ async def get_websocket():
     except Exception as e:
         manager.logger.error(f"监控过程中发生错误: {e}")
 
+async def listen_keyboard():
+    while True:
+        msg = await ainput()
+        await server.emit("chat_message", msg)
+        await asyncio.sleep(0.2)
+
 async def init_app():
     try:
         websocket = await get_websocket()
         server.start_background_task(manager.client.recvLoop, websocket)
         server.start_background_task(manager.client.heartBeat, websocket)
         server.start_background_task(manager.client.appheartBeat)
+        # server.start_background_task(listen_keyboard)
     except Exception as e:
         manager.logger.error(f"初始化失败: {e}")
         raise
