@@ -298,6 +298,7 @@ class BiliClient:
 
     async def handleMassage(self, respBody):
         """处理弹幕消息"""
+        msg = None
         if respBody["cmd"] == "LIVE_OPEN_PLATFORM_DM":# 普通弹幕消息
             uname = respBody["data"]["uname"]
             message = respBody["data"]["msg"]

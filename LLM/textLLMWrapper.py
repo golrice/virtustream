@@ -53,7 +53,7 @@ class TextLLMWrapper():
         """
         emotion = ""
         # 修改正则表达式以匹配中文括号
-        pattern = r'（(.*?)）'
+        pattern = r'[(（](.*?)[）)]'
         matches = re.findall(pattern, message)
         if matches:
             emotion = matches[0]  # 取第一个匹配的表情
