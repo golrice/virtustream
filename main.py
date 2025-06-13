@@ -54,9 +54,11 @@ async def main():
     # # 分配计算资源
     prompter_thread = threading.Thread(target=prompter.prompt_loop, daemon=True)
     # stt_thread = threading.Thread(target=stt.listen_loop, daemon=True)
+    tts_thread = threading.Thread(target=tts.process_queue, daemon=True)
     
     prompter_thread.start()
     # stt_thread.start()
+    tts_thread.start()
 
     for name, module in modules.items():
         module_threads[name] = threading.Thread(target=module.init_event_loop, daemon=True)
@@ -77,6 +79,7 @@ async def main():
     logger.info("TERMINATING ======================")
 
     prompter_thread.join()
+    tts_thread.join()
     logger.info("PROMPTER EXITED ======================")
 
     logger.info("All threads exited, shutdown complete")

@@ -41,21 +41,20 @@ class TTS():
         self._retry_delay = 1
         self._ws_ready = threading.Event()  # 添加连接就绪事件
 
-        self._process_thread = threading.Thread(target=self._process_queue, daemon=True)
-        self._process_thread.start()
+        self._audio_lock = threading.Lock()
 
-    def _process_queue(self):
+    def process_queue(self):
         """处理消息队列的后台线程"""
         while not self._signals.terminate:
             try:
                 if not self._signals.tts_queue.empty():
                     text = self._signals.tts_queue.get()
-                    self._signals.tts_processing = True
                     self.text_to_speech(text)
-                    self._signals.tts_processing = False
-                time.sleep(0.1)  # 避免过度占用 CPU
+                time.sleep(1)  # 避免过度占用 CPU
             except Exception as e:
                 self._logger.error(f"处理TTS队列时出错: {e}")
+            finally:
+                self._signals.tts_processing = False
 
     def _create_url(self):
         """生成鉴权url"""
@@ -88,6 +87,7 @@ class TTS():
 
     def _on_message(self, ws, message):
         try:
+            self._logger.info("tts parsing message")
             message = json.loads(message)
             if message["code"] != 0:
                 self._logger.error(f'合成失败: {message["code"]}, {message["message"]}')
@@ -184,10 +184,12 @@ class TTS():
         audio_data = []
         
         try:
+            self._logger.info("tts trying")
             if not self._ensure_ws_connection():
                 raise Exception("无法建立WebSocket连接")
 
             # 发送数据之前再次检查连接状态
+            self._logger.info("tts checking")
             if not (self._ws and self._ws.sock and self._ws_ready.is_set()):
                 raise Exception("WebSocket连接已断开")
 
@@ -202,6 +204,7 @@ class TTS():
             self._ws.send(json.dumps(data))
             
             # 收集音频数据
+            self._logger.info("tts collecting")
             while True:
                 data = self.audio_queue.get(timeout=self.TIMEOUT)  # 使用配置的超时时间
                 if data is None:
@@ -214,15 +217,24 @@ class TTS():
         except Exception as e:
             self._logger.error(f"语音合成错误: {str(e)}")
             return np.array([], dtype=np.float32)
+        finally:
+            with self._ws_lock:
+                if self._ws:
+                    try:
+                        self._ws.close()
+                    except Exception as e:
+                        self._logger.warning(f"关闭WebSocket时出错: {e}")
+                    self._ws = None
+                    self._ws_ready.clear()
             
         audio_data = np.array(audio_data, dtype=np.float32) / 32768.0
 
         # 实时播放
         if play_audio and len(audio_data) > 0:
-            self._signals.AI_speaking = True
-            sd.play(audio_data, samplerate=16000)
-            sd.wait()
-            self._signals.AI_speaking = False
+            with self._audio_lock:
+                self._logger.info("tts playing")
+                sd.play(audio_data, samplerate=16000)
+                sd.wait()
 
         return audio_data
         
@@ -230,7 +242,6 @@ class TTS():
         """将消息添加到队列"""
         if not message.strip():
             return
-        self._signals._AI_speaking = True
         self._signals.tts_queue.put(message)
 
     def stop(self):
