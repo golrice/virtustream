@@ -40,11 +40,11 @@ async def listen_keyboard():
 
 async def init_app():
     try:
-        websocket = await get_websocket()
-        server.start_background_task(manager.client.recvLoop, websocket)
-        server.start_background_task(manager.client.heartBeat, websocket)
-        server.start_background_task(manager.client.appheartBeat)
-        # server.start_background_task(listen_keyboard)
+        # websocket = await get_websocket()
+        # server.start_background_task(manager.client.recvLoop, websocket)
+        # server.start_background_task(manager.client.heartBeat, websocket)
+        # server.start_background_task(manager.client.appheartBeat)
+        server.start_background_task(listen_keyboard)
     except Exception as e:
         manager.logger.error(f"初始化失败: {e}")
         raise

@@ -104,6 +104,9 @@ class TextLLMWrapper():
             stream=False
         ).choices[0].message.content
 
+        lines = AI_message.strip().splitlines()
+        AI_message = "\n".join(lines[:2])
+
         print(f"AI_message = {AI_message}")
         self._signals._last_message_time = time.time()
         self._signals._AI_thinking = False
@@ -116,7 +119,7 @@ class TextLLMWrapper():
             self._signals.AI_expres = emotion
 
         # 更新历史记录使用原始消息（包含表情），但TTS使用清理后的文本
-        self._signals._history.append({"role": "assistant", "content": AI_message})
+        # self._signals._history.append({"role": "assistant", "content": AI_message})
         self._tts.play(clean_text)
 
 if __name__ == "__main__":

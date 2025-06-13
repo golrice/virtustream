@@ -35,7 +35,7 @@ class TTS():
         self._ws = None  # 添加 WebSocket 连接实例变量
         self._ws_lock = threading.Lock()  # 添加线程锁
         self._ws_thread = None  # 添加 WebSocket 线程变量
-        self.TIMEOUT = 60  # 添加超时时间配置，单位为秒
+        self.TIMEOUT = 15  # 添加超时时间配置，单位为秒
         self._ws_retry_count = 0
         self._max_retries = 3
         self._retry_delay = 1
@@ -203,16 +203,17 @@ class TTS():
 
         # 实时播放
         if play_audio and len(audio_data) > 0:
+            self._signals.AI_speaking = True
             sd.play(audio_data, samplerate=16000)
             sd.wait()
+            self._signals.AI_speaking = False
 
         return audio_data
         
     def play(self, message):
-        if not message.strip() or self._signals.AI_speaking:
+        if not message.strip():
             return
 
-        self._signals._AI_speaking = True
         try:
             self.text_to_speech(message)
         except Exception as e:
