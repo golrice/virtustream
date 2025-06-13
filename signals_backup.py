@@ -21,9 +21,8 @@ class Signals():
         self._terminate = False
 
         self.sio_queue = queue.SimpleQueue()
-        self._tts_queue = queue.Queue()  # 添加 TTS 消息队列
-        self._tts_processing = False     # 添加处理状态标志
     
+
     @property
     def terminate(self):
         return self._terminate
@@ -122,16 +121,3 @@ class Signals():
     @stt_ready.setter
     def stt_ready(self, value):
         self._stt_ready = value
-
-    # 添加 TTS 队列相关的属性方法
-    @property
-    def tts_queue(self):
-        return self._tts_queue
-    
-    @property
-    def tts_processing(self):
-        return self._tts_processing
-    
-    @tts_processing.setter
-    def tts_processing(self, value):
-        self._tts_processing = value

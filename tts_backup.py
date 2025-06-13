@@ -35,27 +35,11 @@ class TTS():
         self._ws = None  # 添加 WebSocket 连接实例变量
         self._ws_lock = threading.Lock()  # 添加线程锁
         self._ws_thread = None  # 添加 WebSocket 线程变量
-        self.TIMEOUT = 15  # 添加超时时间配置，单位为秒
+        self.TIMEOUT = 60  # 添加超时时间配置，单位为秒
         self._ws_retry_count = 0
         self._max_retries = 3
         self._retry_delay = 1
         self._ws_ready = threading.Event()  # 添加连接就绪事件
-
-        self._process_thread = threading.Thread(target=self._process_queue, daemon=True)
-        self._process_thread.start()
-
-    def _process_queue(self):
-        """处理消息队列的后台线程"""
-        while not self._signals.terminate:
-            try:
-                if not self._signals.tts_queue.empty():
-                    text = self._signals.tts_queue.get()
-                    self._signals.tts_processing = True
-                    self.text_to_speech(text)
-                    self._signals.tts_processing = False
-                time.sleep(0.1)  # 避免过度占用 CPU
-            except Exception as e:
-                self._logger.error(f"处理TTS队列时出错: {e}")
 
     def _create_url(self):
         """生成鉴权url"""
@@ -219,19 +203,22 @@ class TTS():
 
         # 实时播放
         if play_audio and len(audio_data) > 0:
-            self._signals.AI_speaking = True
             sd.play(audio_data, samplerate=16000)
             sd.wait()
-            self._signals.AI_speaking = False
 
         return audio_data
         
     def play(self, message):
-        """将消息添加到队列"""
-        if not message.strip():
+        if not message.strip() or self._signals.AI_speaking:
             return
+
         self._signals._AI_speaking = True
-        self._signals.tts_queue.put(message)
+        try:
+            self.text_to_speech(message)
+        except Exception as e:
+            self._logger.error(f"播放失败: {str(e)}")
+        finally:
+            self._signals._AI_speaking = False
 
     def stop(self):
         """停止并清理资源"""
@@ -262,6 +249,3 @@ if __name__ == "__main__":
     tts.text_to_speech("你好,我是mico酱,是一名主播")
     end = time.time()
     print(f"costed: {end - start}s")
-
-
-
