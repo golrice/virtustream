@@ -120,9 +120,9 @@ jobs:
 
 | 环境     | 描述        | 地址             |
 | -------- | ----------- | ---------------- |
-| 开发环境 | 本地/内网   | localhost        |
-| 测试环境 | CI 自动部署 | test.example.com |
-| 生产环境 | 稳定可用    | prod.example.com |
+| 开发环境 | 本地  | localhost        |
+| 测试环境 | CI 自动部署/本地 | localhost |
+| 生产环境 | 本地    | localhost |
 
 ### 4.2 部署方式
 
@@ -178,8 +178,27 @@ jobs:
 * 使用 `watchdog` 或 `healthz` 接口检测服务存活：
 
   1. /healthz 返回 200
+     ```
+     #/healthz配置
+     from fastapi import FastAPI
+     from starlette.responses import JSONResponse
+
+     app = FastAPI()
+
+     @app.get("/healthz")
+     async def healthz():
+       server_healthy = check_outerserver_connection()
+       game_healthy = check_game_connection()
+
+       if db_healthy and redis_healthy:
+         return JSONResponse(status_code=200, content={"status": "ok"})
+       else:
+         return JSONResponse(status_code=500, content={"status": "error"})
+     ```
+     在项目main.py中运行：`uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)`
   2. watchdog.sh 脚本定时 curl 检查关键端口
-    * 告警策略（接入飞书）：
+   
+    * 可选告警策略（接入飞书）：
     CPU > 90% 持续 5min，
     接口错误率 > 1%，
     响应延迟 P95 > 1s 
