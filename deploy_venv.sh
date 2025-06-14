@@ -16,5 +16,5 @@ pip install --upgrade pip
 pip install -r requirements.txt
 
 #项目运行要与其他软件同时运行并操作
-python run_all.py
+
  
