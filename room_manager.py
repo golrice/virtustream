@@ -314,7 +314,7 @@ class BiliClient:
             rmb = respBody["data"]["rmb"]
             msg = f"{uname} 发送了付费聊天: {message} (金额: {rmb}元)"
         if respBody["cmd"] == "LIVE_OPEN_PLATFORM_GUARD":# 上舰消息
-            unmae = respBody["data"]["user_info"]["uname"]
+            uname = respBody["data"]["user_info"]["uname"]
             guard_level = respBody["data"]["guard_level"]
             msg = f"{uname} 成为了 {guard_level} 舰长"
         
