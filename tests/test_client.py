@@ -11,9 +11,7 @@ async def test_chat_message_under_limit(monkeypatch):
     mock_signals = MagicMock()
     mock_signals.recentMessages = []
 
-    logger = logging.getLogger("test")
-
-    client = Client(mock_signals, enable=True, logger=logger)
+    client = Client(mock_signals, enable=True)
 
     handler = client._io.handlers['/']['chat_message']
 
@@ -27,8 +25,7 @@ async def test_chat_message_over_limit():
     mock_signals = MagicMock()
     mock_signals.recentMessages = [{"msg": f"m{i}"} for i in range(MAX_MESSAGES_LEN)]
 
-    logger = logging.getLogger("test")
-    client = Client(mock_signals, enable=True, logger=logger)
+    client = Client(mock_signals, enable=True)
 
     handler = client._io.handlers['/']['chat_message']
     await handler({"msg": "new"})
