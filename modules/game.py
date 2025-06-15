@@ -35,7 +35,14 @@ class Game(Module):
             if match and match.group(1) not in self.step_from_user:
                 # 这里可以想办法把东西传过去
                 # self.step_from_user.append(match.group(1))
-                self.step_from_user.append(match.group(1))
+                match_step = match.group(1)
+                if match_step[0] > 'h' or match_step[2] > 'h' or match_step[1] == '0' or match_step[1] == '9' or match_step[3] == '0' or match_step[3] == '9':
+                    txt = "用户使用了超出棋盘范围的坐标，可以调侃观众：棋子飞出棋盘啦，飞出棋盘的棋子记得放到盖子里哦~"
+                    self._signals.recentMessages.append(txt)
+                    # 保持最近消息列表长度不超过最大值
+                    self._signals.recentMessages = self._signals.recentMessages[:MAX_MESSAGES_LEN_FROM_GAME]
+                else:
+                    self.step_from_user.append(match.group(1))
                 print(self.step_from_user)
             elif re.search(err_pattern1, data) or re.search(err_pattern2, data):
                 txt = "用户使用了错误的指令，可以告诉他们正确的使用样例是：请这样下棋：a1a2\n"
