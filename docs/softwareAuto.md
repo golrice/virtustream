@@ -255,13 +255,13 @@ async def test_chat_message_over_limit():
 ### 5.3 运行测试
 
 ```bash
-pytest
+PYTHONPATH=. pytest tests/  # 运行全部测试用例
 ```
 
 也可以指定测试模块或函数：
 
 ```bash
-pytest tests/test_textLLMWrapper.py::test_chat_message_over_limit
+PYTHONPATH=. pytest tests/test_textLLMWrapper.py::test_chat_message_over_limit
 ```
 
 ---
