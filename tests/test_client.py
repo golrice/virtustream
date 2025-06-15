@@ -1,6 +1,9 @@
 import pytest
 import logging
 from unittest.mock import MagicMock
+import sys
+# 这里填自己的路径
+sys.path.append("C:/Users/31169/Desktop/SFHW/virtustream")
 from modules.client import Client
 
 MAX_MESSAGES_LEN = 10  

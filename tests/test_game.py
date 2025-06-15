@@ -1,8 +1,14 @@
 import pytest
+import sys
+import os
 import logging
 from unittest.mock import MagicMock
+# 这里填自己的路径
+sys.path.append("C:/Users/31169/Desktop/SFHW/virtustream")
 from modules.game import Game
 import random
+# parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+# sys.path.insert(0, parent_dir)
 MAX_MESSAGES_LEN = 10  
 def generate_chess_command():
     # 生成两个小写字母
