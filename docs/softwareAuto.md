@@ -1,8 +1,10 @@
 # 自动化文档
 
-| 版本号 | 日期       | 修改人 | 描述               |
-| ------ | ---------- | ------ | ------------------ |
-| 1.0    | 2025-04-27 | 利嘉烽 | 初版，确认基本需求 |
+| 版本号 | 日期       | 修改人 | 描述                           |
+| ------ | ---------- | ------ | ------------------------------ |
+| 1.0    | 2025-04-27 | 利嘉烽 | 初版，确认基本需求             |
+| 2.0    | 2025-05-21 | 利嘉烽 | 完善开发过程所需内容、便于开发 |
+| 2.1    | 2025-06-14 | 利嘉烽 | 修正部分错误内容               |
 
 ---
 
@@ -10,15 +12,26 @@
 
 ```bash
 virtustream/
-│
-├── main.py                # 主入口
-├── llm/                   # LLM 封装模块
-├── signals.py             # 事件总线实现
-├── stt.py                 # 语音转文本
-├── tts.py                 # 文本转语音
-├── constant.py            # 常量定义
-├── requirements.txt       # Python 依赖包列表
-└── docs/                  # 文档目录
+├── LLM/                # 语言模型
+├── README.md           # 说明文档
+├── assets              # 资源
+├── constant.py         # 静态常量
+├── docs                # 说明文档
+├── lichess-bot         # 棋类游戏
+├── main.py             # 程序主入口
+├── modules             # 扩展模块
+├── outerServer.py      # 直播平台交互
+├── prompter.py         # 管理模型使用、提示词使用
+├── proto.py            # 直播协议
+├── requirements.txt    # 项目依赖项
+├── room_manager.py     # 直播房间管理
+├── room_manager.spec   # 直播房间管理
+├── signals.py          # 共享信号量
+├── stt.py              # 语音转文字
+├── tests               # 测试文件夹
+├── tts.py              # 文字转语音
+├── utils.py            # 工具类
+└── venv                # 虚拟环境
 ```
 
 ---
@@ -49,13 +62,12 @@ pip install -r requirements.txt
 
 ### 常用开发工具
 
-| 工具       | 用途           |
-| ---------- | -------------- |
-| VSCode     | 推荐开发编辑器 |
-| `autopep8` | 代码自动格式化 |
-| `pylint`   | 静态代码检查   |
-| `pytest`   | 单元测试框架   |
-| `loguru`   | 日志打印       |
+| 工具      | 用途           |
+| --------- | -------------- |
+| VSCode    | 推荐开发编辑器 |
+| `pylint`  | 静态代码检查   |
+| `pytest`  | 单元测试框架   |
+| `logging` | 日志打印       |
 
 ---
 
@@ -85,6 +97,7 @@ git checkout -b dev   # 创建分支
 # 修改代码...
 git add .
 git commit -m "feat: xxx"
+git push origin dev:feature_xxx
 ```
 
 ---
@@ -92,12 +105,12 @@ git commit -m "feat: xxx"
 ### 3.3 合并流程（管理员或负责人操作）
 
 ```bash
-git checkout main
-git pull origin main # 获取最新的远端代码
-git merge dev # 将本地的开发内容加入到main分支
-git push origin main # 推送到远端
 git checkout dev
-git rebase main
+git fetch origin # 获取最新远端代码
+git merge feature_xxx # 将某个分支的更新进行合并
+git checkout main
+git merge dev # 将刚才所有的合并都集中为一次合并到main中
+git push origin main # 将合并推送到主分支
 ```
 
 ---
@@ -109,6 +122,7 @@ git rebase main
 ```bash
 python outerServer.py
 python main.py
+python ./lichess-bot/lichess-bot.py # 可选
 ```
 
 确保所有模块通过 `if __name__ == "__main__":` 方式可独立运行调试。
@@ -117,6 +131,42 @@ python main.py
 
 使用内置的`logging`模块代替一般的print需求，
 将问题暴露在日志当中。
+
+通过封装好的一个`get_logger`函数，可以保证每一个子模块都有单独的日志写入器。
+这样每个模块都可以单独输出日志，快速找到问题所在。
+
+```py
+def get_logger(name: str = "default", level=logging.INFO) -> logging.Logger:
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
+
+    if logger.handlers:
+        return logger  
+
+    formatter = logging.Formatter(
+        fmt="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S"
+    )
+
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(level)
+    console_handler.setFormatter(formatter)
+    logger.addHandler(console_handler)
+
+    file_handler = TimedRotatingFileHandler(
+        filename=os.path.join(LOG_DIR, f"{name}.log"),
+        when="midnight",
+        interval=1,
+        backupCount=7,  
+        encoding="utf-8"
+    )
+    file_handler.setLevel(level)
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+
+    logger.propagate = False  
+    return logger
+```
 
 ---
 
@@ -132,14 +182,74 @@ pip install pytest
 
 ### 5.2 编写测试
 
+使用 `pytest` 编写测试用例时，遵循以下**四个简洁明了的基本原则**：
+
+#### **测试函数命名以 `test_` 开头**
+
 ```python
-# tests/test_basic.py
-
-def add(a, b):
-    return a + b
-
 def test_add():
     assert add(1, 2) == 3
+```
+
+- 这样 pytest 才能自动发现和运行它。
+
+#### **使用 `assert` 断言**
+
+```python
+def test_uppercase():
+    assert "hello".upper() == "HELLO"
+```
+
+- `pytest` 会自动展示断言失败的对比信息，不需要用 `unittest` 那套繁琐的 `self.assertEqual()`。
+
+#### **保持测试独立，无副作用**
+
+* 每个测试应**独立运行、不依赖其他测试或外部状态**。
+* 可通过 `pytest` 的 fixture 实现隔离和资源管理。
+
+```python
+import pytest
+
+@pytest.fixture
+def sample_dict():
+    return {"key": "value"}
+
+def test_dict_access(sample_dict):
+    assert sample_dict["key"] == "value"
+```
+
+#### **可读性优先，按“准备-执行-断言”结构**
+
+```python
+def test_discount_calculation():
+    # 准备
+    price = 100
+    discount = 0.2
+
+    # 执行
+    final_price = price * (1 - discount)
+
+    # 断言
+    assert final_price == 80
+```
+
+#### 具体实例展示
+
+```python
+# tests/test_textLLMWrapper.py
+@pytest.mark.asyncio
+async def test_chat_message_over_limit():
+    mock_signals = MagicMock()
+    mock_signals.recentMessages = [{"msg": f"m{i}"} for i in range(MAX_MESSAGES_LEN)]
+
+    logger = logging.getLogger("test")
+    client = Client(mock_signals, enable=True, logger=logger)
+
+    handler = client._io.handlers['/']['chat_message']
+    await handler({"msg": "new"})
+
+    # 最早的消息被踢出，最新的消息在末尾
+    assert mock_signals.recentMessages == [{"msg": f"m{i}"} for i in range(1, MAX_MESSAGES_LEN)] + [{"msg": "new"}]
 ```
 
 ### 5.3 运行测试
@@ -148,53 +258,42 @@ def test_add():
 pytest
 ```
 
-你也可以指定测试模块或函数：
+也可以指定测试模块或函数：
 
 ```bash
-pytest tests/test_basic.py::test_add
+pytest tests/test_textLLMWrapper.py::test_chat_message_over_limit
 ```
 
 ---
 
 ## 6. 持续集成（CI）
 
-> 可选项，适用于团队合作和生产级自动化部署。
-
-建议配置 GitHub Actions / GitLab CI 做以下工作：
-
-* 自动运行 `pytest`，保证提交代码通过测试
-* 使用 `black` 或 `flake8` 做代码风格检查
-* 部署构建 docker 镜像或压缩包到服务器/云平台
-
-📄 示例 GitHub Actions 工作流（`.github/workflows/python.yml`）：
+配置 GitHub Actions。
+自动运行 `pytest`，保证提交代码通过测试。
 
 ```yaml
-name: Python CI
+name: Run Pytest on Push
 
-on: [push, pull_request]
+on: [push, pull_request]  # 触发条件：push 或 PR 时触发
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  test:
+    runs-on: ubuntu-latest  # 在 GitHub 提供的 Ubuntu 虚拟机中运行
+
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-      - run: pip install -r requirements.txt
-      - run: pytest
+    - name: Checkout repository
+      uses: actions/checkout@v3  # 拉取代码仓库
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'  
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Run tests with pytest
+      run: pytest  # 运行测试用例
 ```
-
----
-
-## 7. 运行部署建议（非正式）
-
-建议后期整理部署手册，内容可包含：
-
-* docker-compose 启动多个模块（SocketIO、LLM、TTS）
-* 使用 supervisor 管理后台服务
-* 模块部署拓扑图（可参考物理视图）
-* 模块健康检查和日志收集脚本
-
----
-
