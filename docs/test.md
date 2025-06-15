@@ -314,7 +314,7 @@ vtuber studio 提供的 api 来控制 vtuber。同时这个项目模块包含了
 1. 模型动作操控：常运行 10 分钟，观察模型状态及网络连接情况。最后观察模块能否检测信号组中的终止信号结束。
 2. 模型表情操控：编写时长十分钟的信号组。信号中有两种主要信号，即模型是否在说话，以及当前表情。这个信号组要尽可能模拟真实场景并能够测试一些特殊情况，如一句话多个表情，服务器信号延迟等。
 3. 核心功能适配：上述两个测试方案在两个线程中共同运行，观察动作与表情适配情况。
-#### 测试用例
+
 #### 测试用例
 | 用例ID | 测试项 | 输入 | 预期输出 | 验证点 |
 |--------|--------|------|-----------|--------|
@@ -361,6 +361,25 @@ vtuber studio 提供的 api 来控制 vtuber。同时这个项目模块包含了
 pytest tests/test_game.py -v
 ```
 #### 测试结果
+```bash
+(venv) PS C:\Users\31169\Desktop\SFHW\virtustream> pytest tests/test_game.py
+C:\Users\31169\Desktop\SFHW\venv\Lib\site-packages\pytest_asyncio\plugin.py:208: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
+The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
+The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
+ "function", "class", "module", "package", "session"
+
+  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))
+====================================================================== test session starts ======================================================================= 
+platform win32 -- Python 3.11.2, pytest-8.3.5, pluggy-1.6.0
+rootdir: C:\Users\31169\Desktop\SFHW\virtustream
+plugins: anyio-4.9.0, hydra-core-1.3.2, asyncio-1.0.0
+asyncio: mode=Mode.STRICT, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 2 items                                                                                                                                                  
+
+tests\test_game.py ..                                                                                                                                       [100%] 
+
+======================================================================= 2 passed in 0.50s ===============================
+```
 ### 2.6 ProtoBuf协议测试
 #### 测试目的
 验证 ProtoBuf 协议的序列化和反序列化功能是否正常，确保数据传输的正确性和效率。
@@ -426,6 +445,26 @@ tests/test_proto.py::test_proto_unpack_version_not_zero PASSED                  
 pytest tests/test_room_manager.py -v
 ```
 #### 测试结果
+```bash
+The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
+
+  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))
+============================================================= test session starts ==============================================================
+platform linux -- Python 3.10.15, pytest-8.3.5, pluggy-1.6.0 -- /home/golrice/projects/homework/virtustream/venv/bin/python
+cachedir: .pytest_cache
+metadata: {'Python': '3.10.15', 'Platform': 'Linux-6.6.87.1-microsoft-standard-WSL2-x86_64-with-glibc2.39', 'Packages': {'pytest': '8.3.5', 'pluggy': '1.6.0'}, 'Plugins': {'html': '4.1.1', 'metadata': '3.1.1', 'asyncio': '1.0.0', 'hydra-core': '1.3.2', 'anyio': '4.9.0'}}
+rootdir: /home/golrice/projects/homework/virtustream
+plugins: html-4.1.1, metadata-3.1.1, asyncio-1.0.0, hydra-core-1.3.2, anyio-4.9.0
+asyncio: mode=strict, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 11 items
+
+tests/test_room_manager.py::test_handle_dm_message PASSED                                                                                [  9%]
+tests/test_room_manager.py::test_handle_gift_message PASSED                                                                              [ 18%]
+tests/test_room_manager.py::test_handle_super_chat_message PASSED                                                                        [ 27%]
+tests/test_room_manager.py::test_handle_guard_message PASSED                                                                             [ 36%]
+tests/test_room_manager.py::test_handle_unknown_message PASSED                                                                           [ 45%]
+tests/test_room_manager.py::te
+```
 ## 3. 集成测试
 #### 测试目的
 #### 测试计划
